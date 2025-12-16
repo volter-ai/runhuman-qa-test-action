@@ -1,0 +1,62 @@
+name: 'RunHuman QA Test'
+description: 'Run human-powered QA tests in your CI/CD pipeline. Get real human feedback on UI, UX, and user flows.'
+author: 'RunHuman'
+
+branding:
+  icon: 'check-circle'
+  color: 'yellow'
+
+inputs:
+  api-key:
+    description: 'RunHuman API key (starts with qa_live_). Store as secret!'
+    required: true
+  url:
+    description: 'URL to test (must be publicly accessible)'
+    required: true
+  description:
+    description: 'Test instructions for human tester'
+    required: true
+  output-schema:
+    description: 'JSON schema defining expected output structure (JSON string or object)'
+    required: true
+  api-url:
+    description: 'RunHuman API base URL'
+    required: false
+    default: 'https://runhuman.com'
+  target-duration-minutes:
+    description: 'Target test duration in minutes (1-60, default: 5)'
+    required: false
+    default: '5'
+  allow-duration-extension:
+    description: 'Allow tester to request more time (true/false)'
+    required: false
+    default: 'false'
+  max-extension-minutes:
+    description: 'Maximum extension minutes allowed (number or false)'
+    required: false
+  fail-on-error:
+    description: 'Fail workflow if test fails (default: true)'
+    required: false
+    default: 'true'
+
+outputs:
+  status:
+    description: 'Job status (completed, error, incomplete, abandoned)'
+  success:
+    description: 'Boolean - true if test succeeded, false otherwise'
+  result:
+    description: 'Full result object as JSON string'
+  explanation:
+    description: 'Tester explanation/findings'
+  data:
+    description: 'Extracted data as JSON string'
+  cost-usd:
+    description: 'Test cost in USD (e.g., 0.396)'
+  duration-seconds:
+    description: 'Test duration in seconds'
+  job-id:
+    description: 'Job ID for reference'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
