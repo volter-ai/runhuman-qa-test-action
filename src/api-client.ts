@@ -64,6 +64,12 @@ export async function runQATest(request: QATestRequest): Promise<QATestResponse>
       core.debug(`Test success: ${data.result.success}`);
     }
 
+    core.info(`[DEBUG] Response has testerData: ${!!data.testerData}`);
+    if (data.testerData) {
+      core.info(`[DEBUG] testerData.videoUrl: ${data.testerData.videoUrl || 'MISSING'}`);
+      core.info(`[DEBUG] testerData.screenshots: ${data.testerData.screenshots?.length || 0}`);
+    }
+
     return data;
   } catch (error) {
     if (error instanceof Error) {
