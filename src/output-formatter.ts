@@ -33,7 +33,7 @@ export async function formatSummary(response: QATestResponse, testedUrl: string)
   const summary = core.summary;
 
   // Header
-  summary.addHeading('🧪 RunHuman QA Test Results', 2);
+  summary.addHeading('🧪 Runhuman QA Test Results', 2);
 
   // Status badge
   const statusEmoji = response.status === 'completed' && response.result?.success ? '✅' : '❌';
@@ -96,7 +96,7 @@ export async function formatSummary(response: QATestResponse, testedUrl: string)
 
   // Footer
   summary.addRaw('\n---\n');
-  summary.addRaw('Powered by [RunHuman](https://runhuman.com) - Human-powered QA testing\n');
+  summary.addRaw('Powered by [Runhuman](https://runhuman.com) - Human-powered QA testing\n');
 
   await summary.write();
 }

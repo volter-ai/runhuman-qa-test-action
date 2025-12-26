@@ -1,4 +1,4 @@
-# RunHuman QA Test Action
+# Runhuman QA Test Action
 
 GitHub Action for human-powered QA testing in CI/CD pipelines.
 
@@ -40,11 +40,11 @@ GitHub Action for human-powered QA testing in CI/CD pipelines.
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `api-key` | ✅ Yes | - | RunHuman API key (get from [runhuman.com/playground](https://runhuman.com/playground)) |
+| `api-key` | ✅ Yes | - | Runhuman API key (get from [runhuman.com/playground](https://runhuman.com/playground)) |
 | `url` | ✅ Yes | - | URL to test (must be publicly accessible) |
 | `description` | ✅ Yes | - | Test instructions for human tester |
 | `output-schema` | ✅ Yes | - | JSON schema defining expected output |
-| `api-url` | No | `https://runhuman.com` | RunHuman API base URL |
+| `api-url` | No | `https://runhuman.com` | Runhuman API base URL |
 | `target-duration-minutes` | No | `5` | Target test duration (1-60) |
 | `allow-duration-extension` | No | `false` | Allow tester to request more time |
 | `max-extension-minutes` | No | - | Maximum extension minutes |
@@ -258,7 +258,7 @@ jobs:
 
 - **Cost**: $0.0018 per second of testing time
 - **Average test**: ~3-5 minutes (~$0.32-$0.54)
-- **Billing**: Charged to your RunHuman account
+- **Billing**: Charged to your Runhuman account
 
 ## Security
 
@@ -277,7 +277,7 @@ jobs:
 
 ## How It Works
 
-1. **Action starts**: Your workflow triggers the RunHuman action
+1. **Action starts**: Your workflow triggers the Runhuman action
 2. **Job created**: A test job is created and sent to human testers
 3. **Tester claims**: A qualified tester claims your test
 4. **Testing**: The tester follows your instructions and tests your app
@@ -335,7 +335,7 @@ Error: Test timeout: Test did not complete within 10 minutes
 ### Network Error
 
 ```
-Error: Network error: Cannot reach RunHuman API
+Error: Network error: Cannot reach Runhuman API
 ```
 
 **Solution**: Check your `api-url` input. Default is `https://runhuman.com`

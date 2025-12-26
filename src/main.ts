@@ -7,7 +7,7 @@ import { handleError } from './error-handler';
 async function run(): Promise<void> {
   try {
     // Parse and validate inputs
-    core.info('🚀 Starting RunHuman QA test...');
+    core.info('🚀 Starting Runhuman QA test...');
     const inputs = parseInputs();
 
     // Display test configuration
@@ -16,7 +16,7 @@ async function run(): Promise<void> {
     core.info(`⏱️  Target duration: ${inputs.targetDurationMinutes || 5} minutes`);
     core.info(`🔗 API endpoint: ${inputs.apiUrl}`);
 
-    // Call RunHuman API (synchronous - blocks up to 10 minutes)
+    // Call Runhuman API (synchronous - blocks up to 10 minutes)
     core.info('⏳ Waiting for human tester (up to 10 minutes)...');
     const startTime = Date.now();
 

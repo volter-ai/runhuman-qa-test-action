@@ -1,6 +1,6 @@
-name: 'RunHuman QA Test'
+name: 'Runhuman QA Test'
 description: 'Run human-powered QA tests in your CI/CD pipeline. Get real human feedback on UI, UX, and user flows.'
-author: 'RunHuman'
+author: 'Runhuman'
 
 branding:
   icon: 'check-circle'
@@ -8,7 +8,7 @@ branding:
 
 inputs:
   api-key:
-    description: 'RunHuman API key (starts with qa_live_). Store as secret!'
+    description: 'Runhuman API key (starts with qa_live_). Store as secret!'
     required: true
   url:
     description: 'URL to test (must be publicly accessible)'
@@ -20,7 +20,7 @@ inputs:
     description: 'JSON schema defining expected output structure (JSON string or object)'
     required: true
   api-url:
-    description: 'RunHuman API base URL'
+    description: 'Runhuman API base URL'
     required: false
     default: 'https://runhuman.com'
   target-duration-minutes:

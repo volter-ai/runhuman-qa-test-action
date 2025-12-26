@@ -7,7 +7,7 @@ export function handleError(error: unknown): never {
 
     if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED')) {
       message =
-        `Network error: Cannot reach RunHuman API. ${message}\n` +
+        `Network error: Cannot reach Runhuman API. ${message}\n` +
         'Check your api-url input and network connectivity.';
     }
 

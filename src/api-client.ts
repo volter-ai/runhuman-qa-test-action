@@ -69,7 +69,7 @@ export async function runQATest(request: QATestRequest): Promise<QATestResponse>
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error('Request timeout: The connection to RunHuman API timed out after 10 minutes.');
+        throw new Error('Request timeout: The connection to Runhuman API timed out after 10 minutes.');
       }
       throw error;
     }
