@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import * as github from '@actions/github';
 import type { ParsedInputs } from './types';
 
 export function parseInputs(): ParsedInputs {
@@ -66,6 +67,10 @@ export function parseInputs(): ParsedInputs {
 
   const failOnError = failOnErrorStr !== 'false';
 
+  // Get current GitHub repo from context
+  const { owner, repo } = github.context.repo;
+  const githubRepo = `${owner}/${repo}`;
+
   return {
     apiKey,
     apiUrl,
@@ -76,5 +81,6 @@ export function parseInputs(): ParsedInputs {
     allowDurationExtension,
     maxExtensionMinutes,
     failOnError,
+    githubRepo,
   };
 }

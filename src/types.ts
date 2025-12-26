@@ -30,6 +30,7 @@ export interface QATestRequest {
   targetDurationMinutes?: number;
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
+  githubRepo: string;
 }
 
 export interface QATestResponse {
@@ -52,4 +53,5 @@ export interface ParsedInputs {
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
   failOnError: boolean;
+  githubRepo: string;
 }
