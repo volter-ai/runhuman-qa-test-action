@@ -34,6 +34,13 @@ inputs:
   max-extension-minutes:
     description: 'Maximum extension minutes allowed (number or false)'
     required: false
+  additional-validation-instructions:
+    description: 'Custom instructions for the AI when validating test results (e.g., "Ignore minor CSS issues")'
+    required: false
+  can-create-github-issues:
+    description: 'Auto-create GitHub issues from tester findings (true/false)'
+    required: false
+    default: 'false'
   fail-on-error:
     description: 'Fail workflow if test fails (default: true)'
     required: false
@@ -56,6 +63,16 @@ outputs:
     description: 'Test duration in seconds'
   job-id:
     description: 'Job ID for reference'
+  tester-alias:
+    description: 'Anonymous tester name (e.g., Phoenix)'
+  tester-avatar-url:
+    description: 'Tester avatar URL'
+  tester-color:
+    description: 'Tester color for UI theming'
+  tester-data:
+    description: 'Playwright session data as JSON (screenshots, video, console logs, network requests)'
+  tester-response:
+    description: 'Raw tester response text'
 
 runs:
   using: 'node20'

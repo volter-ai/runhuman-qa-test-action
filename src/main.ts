@@ -29,6 +29,8 @@ async function run(): Promise<void> {
       targetDurationMinutes: inputs.targetDurationMinutes,
       allowDurationExtension: inputs.allowDurationExtension,
       maxExtensionMinutes: inputs.maxExtensionMinutes,
+      additionalValidationInstructions: inputs.additionalValidationInstructions,
+      canCreateGithubIssues: inputs.canCreateGithubIssues,
       githubRepo: inputs.githubRepo,
     });
 

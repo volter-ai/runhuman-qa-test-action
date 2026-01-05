@@ -29973,6 +29973,8 @@ async function runQATest(request) {
         targetDurationMinutes: request.targetDurationMinutes,
         allowDurationExtension: request.allowDurationExtension,
         maxExtensionMinutes: request.maxExtensionMinutes,
+        additionalValidationInstructions: request.additionalValidationInstructions,
+        canCreateGithubIssues: request.canCreateGithubIssues,
         githubRepo: request.githubRepo,
     };
     try {
@@ -30175,6 +30177,8 @@ function parseInputs() {
     const allowExtensionStr = core.getInput('allow-duration-extension');
     const maxExtensionStr = core.getInput('max-extension-minutes');
     const failOnErrorStr = core.getInput('fail-on-error');
+    const additionalValidationInstructions = core.getInput('additional-validation-instructions') || undefined;
+    const canCreateGithubIssuesStr = core.getInput('can-create-github-issues');
     // Parse numeric/boolean inputs
     let targetDurationMinutes;
     if (targetDurationStr) {
@@ -30197,6 +30201,7 @@ function parseInputs() {
         }
     }
     const failOnError = failOnErrorStr !== 'false';
+    const canCreateGithubIssues = canCreateGithubIssuesStr === 'true';
     // Get current GitHub repo from context
     const { owner, repo } = github.context.repo;
     const githubRepo = `${owner}/${repo}`;
@@ -30209,6 +30214,8 @@ function parseInputs() {
         targetDurationMinutes,
         allowDurationExtension,
         maxExtensionMinutes,
+        additionalValidationInstructions,
+        canCreateGithubIssues,
         failOnError,
         githubRepo,
     };
@@ -30283,6 +30290,8 @@ async function run() {
             targetDurationMinutes: inputs.targetDurationMinutes,
             allowDurationExtension: inputs.allowDurationExtension,
             maxExtensionMinutes: inputs.maxExtensionMinutes,
+            additionalValidationInstructions: inputs.additionalValidationInstructions,
+            canCreateGithubIssues: inputs.canCreateGithubIssues,
             githubRepo: inputs.githubRepo,
         });
         const elapsed = Math.round((Date.now() - startTime) / 1000);
@@ -30372,6 +30381,21 @@ function formatOutputs(response) {
     }
     if (response.error) {
         core.setOutput('error', response.error);
+    }
+    if (response.testerAlias) {
+        core.setOutput('tester-alias', response.testerAlias);
+    }
+    if (response.testerAvatarUrl) {
+        core.setOutput('tester-avatar-url', response.testerAvatarUrl);
+    }
+    if (response.testerColor) {
+        core.setOutput('tester-color', response.testerColor);
+    }
+    if (response.testerData) {
+        core.setOutput('tester-data', JSON.stringify(response.testerData));
+    }
+    if (response.testerResponse) {
+        core.setOutput('tester-response', response.testerResponse);
     }
 }
 async function formatSummary(response, testedUrl) {

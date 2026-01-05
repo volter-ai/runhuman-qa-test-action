@@ -13,6 +13,8 @@ export async function runQATest(request: QATestRequest): Promise<QATestResponse>
     targetDurationMinutes: request.targetDurationMinutes,
     allowDurationExtension: request.allowDurationExtension,
     maxExtensionMinutes: request.maxExtensionMinutes,
+    additionalValidationInstructions: request.additionalValidationInstructions,
+    canCreateGithubIssues: request.canCreateGithubIssues,
     githubRepo: request.githubRepo,
   };
 

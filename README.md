@@ -48,6 +48,8 @@ GitHub Action for human-powered QA testing in CI/CD pipelines.
 | `target-duration-minutes` | No | `5` | Target test duration (1-60) |
 | `allow-duration-extension` | No | `false` | Allow tester to request more time |
 | `max-extension-minutes` | No | - | Maximum extension minutes |
+| `additional-validation-instructions` | No | - | Custom AI validation instructions |
+| `can-create-github-issues` | No | `false` | Auto-create GitHub issues from findings |
 | `fail-on-error` | No | `true` | Fail workflow if test fails |
 
 ## Outputs
@@ -62,6 +64,11 @@ GitHub Action for human-powered QA testing in CI/CD pipelines.
 | `cost-usd` | Test cost in USD |
 | `duration-seconds` | Test duration in seconds |
 | `job-id` | Job ID for reference |
+| `tester-alias` | Anonymous tester name (e.g., Phoenix) |
+| `tester-avatar-url` | Tester's avatar URL |
+| `tester-color` | Tester's color for UI theming |
+| `tester-data` | Playwright session data (screenshots, video, console logs) |
+| `tester-response` | Raw tester response text |
 
 ## Examples
 

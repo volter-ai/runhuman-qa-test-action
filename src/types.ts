@@ -30,6 +30,8 @@ export interface QATestRequest {
   targetDurationMinutes?: number;
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
+  additionalValidationInstructions?: string;
+  canCreateGithubIssues?: boolean;
   githubRepo: string;
 }
 
@@ -40,6 +42,10 @@ export interface QATestResponse {
   costUsd?: number;
   testDurationSeconds?: number;
   testerData?: PlaywrightData;
+  testerResponse?: string;
+  testerAlias?: string;
+  testerAvatarUrl?: string;
+  testerColor?: string;
   jobId?: string;
 }
 
@@ -52,6 +58,8 @@ export interface ParsedInputs {
   targetDurationMinutes?: number;
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
+  additionalValidationInstructions?: string;
+  canCreateGithubIssues?: boolean;
   failOnError: boolean;
   githubRepo: string;
 }

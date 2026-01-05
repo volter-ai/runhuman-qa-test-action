@@ -41,6 +41,8 @@ export function parseInputs(): ParsedInputs {
   const allowExtensionStr = core.getInput('allow-duration-extension');
   const maxExtensionStr = core.getInput('max-extension-minutes');
   const failOnErrorStr = core.getInput('fail-on-error');
+  const additionalValidationInstructions = core.getInput('additional-validation-instructions') || undefined;
+  const canCreateGithubIssuesStr = core.getInput('can-create-github-issues');
 
   // Parse numeric/boolean inputs
   let targetDurationMinutes: number | undefined;
@@ -66,6 +68,7 @@ export function parseInputs(): ParsedInputs {
   }
 
   const failOnError = failOnErrorStr !== 'false';
+  const canCreateGithubIssues = canCreateGithubIssuesStr === 'true';
 
   // Get current GitHub repo from context
   const { owner, repo } = github.context.repo;
@@ -80,6 +83,8 @@ export function parseInputs(): ParsedInputs {
     targetDurationMinutes,
     allowDurationExtension,
     maxExtensionMinutes,
+    additionalValidationInstructions,
+    canCreateGithubIssues,
     failOnError,
     githubRepo,
   };

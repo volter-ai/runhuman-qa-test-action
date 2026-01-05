@@ -27,6 +27,26 @@ export function formatOutputs(response: QATestResponse): void {
   if (response.error) {
     core.setOutput('error', response.error);
   }
+
+  if (response.testerAlias) {
+    core.setOutput('tester-alias', response.testerAlias);
+  }
+
+  if (response.testerAvatarUrl) {
+    core.setOutput('tester-avatar-url', response.testerAvatarUrl);
+  }
+
+  if (response.testerColor) {
+    core.setOutput('tester-color', response.testerColor);
+  }
+
+  if (response.testerData) {
+    core.setOutput('tester-data', JSON.stringify(response.testerData));
+  }
+
+  if (response.testerResponse) {
+    core.setOutput('tester-response', response.testerResponse);
+  }
 }
 
 export async function formatSummary(response: QATestResponse, testedUrl: string): Promise<void> {
