@@ -17,8 +17,8 @@ inputs:
     description: 'Test instructions for human tester'
     required: true
   output-schema:
-    description: 'JSON schema defining expected output structure (JSON string or object)'
-    required: true
+    description: 'Optional JSON schema defining expected output structure. If omitted, only success/explanation are extracted.'
+    required: false
   api-url:
     description: 'Runhuman API base URL'
     required: false

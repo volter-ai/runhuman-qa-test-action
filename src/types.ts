@@ -26,7 +26,7 @@ export interface QATestRequest {
   apiUrl: string;
   url: string;
   description: string;
-  outputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   targetDurationMinutes?: number;
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
@@ -54,7 +54,7 @@ export interface ParsedInputs {
   apiUrl: string;
   url: string;
   description: string;
-  outputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   targetDurationMinutes?: number;
   allowDurationExtension?: boolean;
   maxExtensionMinutes?: number | false;
