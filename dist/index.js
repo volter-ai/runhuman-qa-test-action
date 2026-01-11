@@ -29969,7 +29969,7 @@ async function runQATest(request) {
     const requestBody = {
         url: request.url,
         description: request.description,
-        outputSchema: request.outputSchema,
+        ...(request.outputSchema !== undefined && { outputSchema: request.outputSchema }),
         targetDurationMinutes: request.targetDurationMinutes,
         allowDurationExtension: request.allowDurationExtension,
         maxExtensionMinutes: request.maxExtensionMinutes,
