@@ -16,6 +16,7 @@ export async function runQATest(request: QATestRequest): Promise<QATestResponse>
     additionalValidationInstructions: request.additionalValidationInstructions,
     canCreateGithubIssues: request.canCreateGithubIssues,
     githubRepo: request.githubRepo,
+    ...(request.screenSize !== undefined && { screenSize: request.screenSize }),
   };
 
   try {

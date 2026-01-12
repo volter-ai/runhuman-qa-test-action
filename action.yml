@@ -41,6 +41,10 @@ inputs:
     description: 'Auto-create GitHub issues from tester findings (true/false)'
     required: false
     default: 'false'
+  screen-size:
+    description: 'Screen size for testing. Use preset (desktop, laptop, tablet, mobile) or custom JSON {"width": 1920, "height": 1080}'
+    required: false
+    default: 'desktop'
   fail-on-error:
     description: 'Fail workflow if test fails (default: true)'
     required: false

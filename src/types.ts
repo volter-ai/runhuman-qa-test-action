@@ -21,6 +21,8 @@ export interface ExtractedResult {
   data: Record<string, unknown>;
 }
 
+export type ScreenSizeConfig = 'desktop' | 'laptop' | 'tablet' | 'mobile' | { width: number; height: number };
+
 export interface QATestRequest {
   apiKey: string;
   apiUrl: string;
@@ -33,6 +35,7 @@ export interface QATestRequest {
   additionalValidationInstructions?: string;
   canCreateGithubIssues?: boolean;
   githubRepo: string;
+  screenSize?: ScreenSizeConfig;
 }
 
 export interface QATestResponse {
@@ -62,4 +65,5 @@ export interface ParsedInputs {
   canCreateGithubIssues?: boolean;
   failOnError: boolean;
   githubRepo: string;
+  screenSize?: ScreenSizeConfig;
 }

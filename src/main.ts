@@ -32,6 +32,7 @@ async function run(): Promise<void> {
       additionalValidationInstructions: inputs.additionalValidationInstructions,
       canCreateGithubIssues: inputs.canCreateGithubIssues,
       githubRepo: inputs.githubRepo,
+      screenSize: inputs.screenSize,
     });
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
