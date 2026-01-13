@@ -30076,6 +30076,27 @@ function handleError(error) {
     if (error instanceof Error) {
         // Add helpful context to common errors
         let message = error.message;
+        // Include error code if present (e.g., ENOTFOUND, ECONNREFUSED)
+        const errorWithCode = error;
+        if (errorWithCode.code) {
+            message = `${message} (${errorWithCode.code})`;
+        }
+        // Node.js fetch stores the actual error in error.cause
+        const errorWithCause = error;
+        if (errorWithCause.cause) {
+            const cause = errorWithCause.cause;
+            let causeMessage;
+            if (cause instanceof Error) {
+                causeMessage = cause.message;
+            }
+            else if (typeof cause === 'object' && cause !== null) {
+                causeMessage = JSON.stringify(cause);
+            }
+            else {
+                causeMessage = String(cause);
+            }
+            message = `${message}: ${causeMessage}`;
+        }
         if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED')) {
             message =
                 `Network error: Cannot reach Runhuman API. ${message}\n` +
