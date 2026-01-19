@@ -67,3 +67,29 @@ export interface ParsedInputs {
   githubRepo: string;
   screenSize?: ScreenSizeConfig;
 }
+
+// Response from POST /api/jobs (create job)
+export interface CreateJobResponse {
+  jobId: string;
+  message?: string;
+}
+
+// Job status values
+export type JobStatus = 'pending' | 'waiting' | 'working' | 'completed' | 'incomplete' | 'abandoned' | 'rejected' | 'error';
+
+// Response from GET /api/jobs/{jobId} (poll status)
+export interface JobStatusResponse {
+  id: string;
+  status: JobStatus;
+  result?: ExtractedResult;
+  error?: string;
+  reason?: string;
+  costUsd?: number;
+  testDurationSeconds?: number;
+  testerData?: PlaywrightData;
+  testerResponse?: string;
+  testerAlias?: string;
+  testerAvatarUrl?: string;
+  testerColor?: string;
+  jobUrl?: string;
+}

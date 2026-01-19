@@ -29963,9 +29963,23 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runQATest = runQATest;
 const core = __importStar(__nccwpck_require__(7184));
-async function runQATest(request) {
-    const endpoint = `${request.apiUrl}/api/run`;
-    core.debug(`Calling ${endpoint}`);
+// Terminal states that indicate the job is done
+const TERMINAL_STATES = ['completed', 'error', 'abandoned', 'incomplete', 'rejected'];
+// Polling configuration
+const POLL_INTERVAL_MS = 5000; // 5 seconds between polls (matches MCP server)
+const MAX_WAIT_MS = 600000; // 10 minutes maximum wait time
+/**
+ * Sleep for a given duration
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
+ * Create a QA test job via the async API
+ */
+async function createJob(request) {
+    const endpoint = `${request.apiUrl}/api/jobs`;
+    core.debug(`Creating job at ${endpoint}`);
     const requestBody = {
         url: request.url,
         description: request.description,
@@ -29975,57 +29989,142 @@ async function runQATest(request) {
         maxExtensionMinutes: request.maxExtensionMinutes,
         additionalValidationInstructions: request.additionalValidationInstructions,
         canCreateGithubIssues: request.canCreateGithubIssues,
-        githubRepo: request.githubRepo,
+        repoName: request.githubRepo,
         ...(request.screenSize !== undefined && { screenSize: request.screenSize }),
     };
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${request.apiKey}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'runhuman-github-action/1.0.0',
+        },
+        body: JSON.stringify(requestBody),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage;
+        try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+        }
+        catch {
+            errorMessage = errorText || '(empty response body)';
+        }
+        core.error(`Failed to create job:`);
+        core.error(`  Status: ${response.status} ${response.statusText}`);
+        core.error(`  URL: ${endpoint}`);
+        core.error(`  Body: ${errorText || '(empty)'}`);
+        if (response.status === 401) {
+            throw new Error('Authentication failed: Invalid API key. ' +
+                'Make sure your RUNHUMAN_API_KEY secret is set correctly.');
+        }
+        throw new Error(`Failed to create job (${response.status}): ${errorMessage}`);
+    }
+    const data = (await response.json());
+    if (!data.jobId) {
+        throw new Error('API did not return a job ID');
+    }
+    return data.jobId;
+}
+/**
+ * Get the status of a job
+ */
+async function getJobStatus(apiUrl, apiKey, jobId) {
+    const endpoint = `${apiUrl}/api/jobs/${jobId}`;
+    let response;
     try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
+        response = await fetch(endpoint, {
+            method: 'GET',
             headers: {
-                Authorization: `Bearer ${request.apiKey}`,
-                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
                 'User-Agent': 'runhuman-github-action/1.0.0',
             },
-            body: JSON.stringify(requestBody),
-            // 10 minute timeout (endpoint has same timeout)
-            signal: AbortSignal.timeout(600000),
         });
-        // Handle non-200 responses
-        if (!response.ok) {
-            const errorText = await response.text();
-            let errorData;
-            try {
-                errorData = JSON.parse(errorText);
-            }
-            catch {
-                errorData = { error: errorText };
-            }
-            if (response.status === 408) {
-                throw new Error('Test timeout: Test did not complete within 10 minutes. ' +
-                    'This may indicate the tester is unavailable or taking longer than expected.');
-            }
-            if (response.status === 401) {
-                throw new Error('Authentication failed: Invalid API key. ' +
-                    'Make sure your RUNHUMAN_API_KEY secret is set correctly.');
-            }
-            throw new Error(`API request failed (${response.status}): ${errorData.error || errorData.message || errorText}`);
-        }
-        const data = (await response.json());
-        core.debug(`Response status: ${data.status}`);
-        if (data.result) {
-            core.debug(`Test success: ${data.result.success}`);
-        }
-        return data;
     }
-    catch (error) {
-        if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-                throw new Error('Request timeout: The connection to Runhuman API timed out after 10 minutes.');
-            }
-            throw error;
-        }
-        throw new Error(`Unexpected error: ${String(error)}`);
+    catch (fetchError) {
+        const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        const errorCause = fetchError instanceof Error && fetchError.cause ? ` Cause: ${JSON.stringify(fetchError.cause)}` : '';
+        core.error(`Network error fetching job status:`);
+        core.error(`  URL: ${endpoint}`);
+        core.error(`  Error: ${errorMessage}${errorCause}`);
+        throw new Error(`Network error checking job status: ${errorMessage}${errorCause}`);
     }
+    if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 404) {
+            throw new Error(`Job ${jobId} not found`);
+        }
+        core.error(`HTTP error fetching job status:`);
+        core.error(`  URL: ${endpoint}`);
+        core.error(`  Status: ${response.status} ${response.statusText}`);
+        core.error(`  Body: ${errorText || '(empty)'}`);
+        throw new Error(`Failed to get job status (${response.status}): ${errorText || response.statusText}`);
+    }
+    return (await response.json());
+}
+/**
+ * Poll for job completion
+ */
+async function waitForCompletion(apiUrl, apiKey, jobId, maxWaitMs = MAX_WAIT_MS) {
+    const startTime = Date.now();
+    let lastStatus = null;
+    while (true) {
+        const elapsed = Date.now() - startTime;
+        const status = await getJobStatus(apiUrl, apiKey, jobId);
+        // Log status changes
+        if (status.status !== lastStatus) {
+            core.info(`Job ${jobId} status: ${status.status} (${Math.round(elapsed / 1000)}s elapsed)`);
+            lastStatus = status.status;
+        }
+        if (TERMINAL_STATES.includes(status.status)) {
+            return status;
+        }
+        // Check timeout
+        if (elapsed > maxWaitMs) {
+            throw new Error(`Job did not complete within ${Math.round(maxWaitMs / 60000)} minutes`);
+        }
+        // Wait before next poll
+        await sleep(POLL_INTERVAL_MS);
+    }
+}
+/**
+ * Run a QA test - creates job and polls for completion
+ */
+async function runQATest(request) {
+    // Step 1: Create the job
+    const jobId = await createJob(request);
+    core.info(`✅ Job created: ${jobId}`);
+    // Step 2: Poll for completion
+    core.info('⏳ Waiting for human tester...');
+    const finalStatus = await waitForCompletion(request.apiUrl, request.apiKey, jobId);
+    // Step 3: Log completion status
+    if (finalStatus.status === 'completed') {
+        core.info(`✅ Job ${jobId} completed successfully`);
+    }
+    else {
+        core.warning(`⚠️ Job ${jobId} ended with status: ${finalStatus.status}`);
+        if (finalStatus.error) {
+            core.warning(`Error: ${finalStatus.error}`);
+        }
+        if (finalStatus.reason) {
+            core.warning(`Reason: ${finalStatus.reason}`);
+        }
+    }
+    // Step 4: Convert to QATestResponse format
+    return {
+        status: finalStatus.status,
+        result: finalStatus.result,
+        error: finalStatus.error || finalStatus.reason,
+        costUsd: finalStatus.costUsd,
+        testDurationSeconds: finalStatus.testDurationSeconds,
+        testerData: finalStatus.testerData,
+        testerResponse: finalStatus.testerResponse,
+        testerAlias: finalStatus.testerAlias,
+        testerAvatarUrl: finalStatus.testerAvatarUrl,
+        testerColor: finalStatus.testerColor,
+        jobId: finalStatus.id,
+    };
 }
 //# sourceMappingURL=api-client.js.map
 
@@ -30335,8 +30434,7 @@ async function run() {
         core.info(`📝 Description: ${inputs.description}`);
         core.info(`⏱️  Target duration: ${inputs.targetDurationMinutes || 5} minutes`);
         core.info(`🔗 API endpoint: ${inputs.apiUrl}`);
-        // Call Runhuman API (synchronous - blocks up to 10 minutes)
-        core.info('⏳ Waiting for human tester (up to 10 minutes)...');
+        // Call Runhuman API (creates job and polls for completion)
         const startTime = Date.now();
         const response = await (0, api_client_1.runQATest)({
             apiKey: inputs.apiKey,

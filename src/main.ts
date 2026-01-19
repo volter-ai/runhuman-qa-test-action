@@ -16,8 +16,7 @@ async function run(): Promise<void> {
     core.info(`⏱️  Target duration: ${inputs.targetDurationMinutes || 5} minutes`);
     core.info(`🔗 API endpoint: ${inputs.apiUrl}`);
 
-    // Call Runhuman API (synchronous - blocks up to 10 minutes)
-    core.info('⏳ Waiting for human tester (up to 10 minutes)...');
+    // Call Runhuman API (creates job and polls for completion)
     const startTime = Date.now();
 
     const response = await runQATest({
