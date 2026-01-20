@@ -1,5 +1,25 @@
 import * as core from '@actions/core';
+import * as github from '@actions/github';
 import type { QATestRequest, QATestResponse, CreateJobResponse, JobStatusResponse, JobStatus } from './types';
+
+/**
+ * Build metadata with source tracking for the QA test action
+ */
+function buildMetadata(): Record<string, unknown> {
+  const context = github.context;
+
+  return {
+    source: 'qa-test-action',
+    sourceCreatedAt: new Date().toISOString(),
+    githubAction: {
+      actionName: 'qa-test-action',
+      runId: context.runId?.toString(),
+      workflowName: context.workflow,
+      triggerEvent: context.eventName,
+      actor: context.actor,
+    },
+  };
+}
 
 // Terminal states that indicate the job is done
 const TERMINAL_STATES: JobStatus[] = ['completed', 'error', 'abandoned', 'incomplete', 'rejected'];
@@ -34,6 +54,7 @@ async function createJob(request: QATestRequest): Promise<string> {
     canCreateGithubIssues: request.canCreateGithubIssues,
     repoName: request.githubRepo,
     ...(request.screenSize !== undefined && { screenSize: request.screenSize }),
+    metadata: buildMetadata(),
   };
 
   const response = await fetch(endpoint, {
