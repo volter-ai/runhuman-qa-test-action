@@ -36,6 +36,43 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Retry wrapper for network errors (ECONNRESET, ETIMEDOUT, etc.)
+ * Uses exponential backoff: 1s, 2s, 4s delays
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      const isNetworkError =
+        lastError.message.includes('ECONNRESET') ||
+        lastError.message.includes('ETIMEDOUT') ||
+        lastError.message.includes('socket hang up') ||
+        lastError.message.includes('fetch failed');
+
+      if (!isNetworkError || attempt === maxRetries) {
+        throw lastError;
+      }
+
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      core.warning(
+        `Network error (attempt ${attempt + 1}/${maxRetries + 1}): ${lastError.message}. Retrying in ${delay}ms...`
+      );
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Create a QA test job via the async API
  */
 async function createJob(request: QATestRequest): Promise<string> {
@@ -63,6 +100,7 @@ async function createJob(request: QATestRequest): Promise<string> {
       Authorization: `Bearer ${request.apiKey}`,
       'Content-Type': 'application/json',
       'User-Agent': 'runhuman-github-action/1.0.0',
+      Connection: 'close',
     },
     body: JSON.stringify(requestBody),
   });
@@ -115,6 +153,7 @@ async function getJobStatus(apiUrl: string, apiKey: string, jobId: string): Prom
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'User-Agent': 'runhuman-github-action/1.0.0',
+        Connection: 'close',
       },
     });
   } catch (fetchError) {
@@ -158,7 +197,7 @@ async function waitForCompletion(
 
   while (true) {
     const elapsed = Date.now() - startTime;
-    const status = await getJobStatus(apiUrl, apiKey, jobId);
+    const status = await withRetry(() => getJobStatus(apiUrl, apiKey, jobId));
 
     // Log status changes
     if (status.status !== lastStatus) {
@@ -184,8 +223,8 @@ async function waitForCompletion(
  * Run a QA test - creates job and polls for completion
  */
 export async function runQATest(request: QATestRequest): Promise<QATestResponse> {
-  // Step 1: Create the job
-  const jobId = await createJob(request);
+  // Step 1: Create the job (with retry for network errors)
+  const jobId = await withRetry(() => createJob(request));
   core.info(`✅ Job created: ${jobId}`);
 
   // Step 2: Poll for completion

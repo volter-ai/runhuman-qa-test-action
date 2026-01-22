@@ -29963,6 +29963,24 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runQATest = runQATest;
 const core = __importStar(__nccwpck_require__(7184));
+const github = __importStar(__nccwpck_require__(5683));
+/**
+ * Build metadata with source tracking for the QA test action
+ */
+function buildMetadata() {
+    const context = github.context;
+    return {
+        source: 'qa-test-action',
+        sourceCreatedAt: new Date().toISOString(),
+        githubAction: {
+            actionName: 'qa-test-action',
+            runId: context.runId?.toString(),
+            workflowName: context.workflow,
+            triggerEvent: context.eventName,
+            actor: context.actor,
+        },
+    };
+}
 // Terminal states that indicate the job is done
 const TERMINAL_STATES = ['completed', 'error', 'abandoned', 'incomplete', 'rejected'];
 // Polling configuration
@@ -29973,6 +29991,32 @@ const MAX_WAIT_MS = 600000; // 10 minutes maximum wait time
  */
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
+ * Retry wrapper for network errors (ECONNRESET, ETIMEDOUT, etc.)
+ * Uses exponential backoff: 1s, 2s, 4s delays
+ */
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 1000) {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        }
+        catch (error) {
+            lastError = error;
+            const isNetworkError = lastError.message.includes('ECONNRESET') ||
+                lastError.message.includes('ETIMEDOUT') ||
+                lastError.message.includes('socket hang up') ||
+                lastError.message.includes('fetch failed');
+            if (!isNetworkError || attempt === maxRetries) {
+                throw lastError;
+            }
+            const delay = baseDelayMs * Math.pow(2, attempt);
+            core.warning(`Network error (attempt ${attempt + 1}/${maxRetries + 1}): ${lastError.message}. Retrying in ${delay}ms...`);
+            await sleep(delay);
+        }
+    }
+    throw lastError;
 }
 /**
  * Create a QA test job via the async API
@@ -29991,6 +30035,7 @@ async function createJob(request) {
         canCreateGithubIssues: request.canCreateGithubIssues,
         repoName: request.githubRepo,
         ...(request.screenSize !== undefined && { screenSize: request.screenSize }),
+        metadata: buildMetadata(),
     };
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -29998,6 +30043,7 @@ async function createJob(request) {
             Authorization: `Bearer ${request.apiKey}`,
             'Content-Type': 'application/json',
             'User-Agent': 'runhuman-github-action/1.0.0',
+            Connection: 'close',
         },
         body: JSON.stringify(requestBody),
     });
@@ -30039,6 +30085,7 @@ async function getJobStatus(apiUrl, apiKey, jobId) {
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 'User-Agent': 'runhuman-github-action/1.0.0',
+                Connection: 'close',
             },
         });
     }
@@ -30071,7 +30118,7 @@ async function waitForCompletion(apiUrl, apiKey, jobId, maxWaitMs = MAX_WAIT_MS)
     let lastStatus = null;
     while (true) {
         const elapsed = Date.now() - startTime;
-        const status = await getJobStatus(apiUrl, apiKey, jobId);
+        const status = await withRetry(() => getJobStatus(apiUrl, apiKey, jobId));
         // Log status changes
         if (status.status !== lastStatus) {
             core.info(`Job ${jobId} status: ${status.status} (${Math.round(elapsed / 1000)}s elapsed)`);
@@ -30092,8 +30139,8 @@ async function waitForCompletion(apiUrl, apiKey, jobId, maxWaitMs = MAX_WAIT_MS)
  * Run a QA test - creates job and polls for completion
  */
 async function runQATest(request) {
-    // Step 1: Create the job
-    const jobId = await createJob(request);
+    // Step 1: Create the job (with retry for network errors)
+    const jobId = await withRetry(() => createJob(request));
     core.info(`✅ Job created: ${jobId}`);
     // Step 2: Poll for completion
     core.info('⏳ Waiting for human tester...');
