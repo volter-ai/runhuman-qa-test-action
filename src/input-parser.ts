@@ -70,6 +70,8 @@ export function parseInputs(): ParsedInputs {
   }
 
   const failOnError = failOnErrorStr !== 'false';
+  const failOnTimeoutStr = core.getInput('fail-on-timeout');
+  const failOnTimeout = failOnTimeoutStr === 'true';
   const canCreateGithubIssues = canCreateGithubIssuesStr === 'true';
 
   // Parse screen size input
@@ -119,6 +121,7 @@ export function parseInputs(): ParsedInputs {
     additionalValidationInstructions,
     canCreateGithubIssues,
     failOnError,
+    failOnTimeout,
     githubRepo,
     screenSize,
   };

@@ -64,6 +64,7 @@ export interface ParsedInputs {
   additionalValidationInstructions?: string;
   canCreateGithubIssues?: boolean;
   failOnError: boolean;
+  failOnTimeout: boolean;
   githubRepo: string;
   screenSize?: ScreenSizeConfig;
 }
@@ -92,4 +93,7 @@ export interface JobStatusResponse {
   testerAvatarUrl?: string;
   testerColor?: string;
   jobUrl?: string;
+  targetDurationMinutes?: number;
+  totalExtensionMinutes?: number;
+  responseDeadline?: string;
 }

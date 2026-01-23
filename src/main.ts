@@ -19,7 +19,7 @@ async function run(): Promise<void> {
     // Call Runhuman API (creates job and polls for completion)
     const startTime = Date.now();
 
-    const response = await runQATest({
+    const { response, timedOut } = await runQATest({
       apiKey: inputs.apiKey,
       apiUrl: inputs.apiUrl,
       url: inputs.url,
@@ -35,6 +35,26 @@ async function run(): Promise<void> {
     });
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
+
+    // Set timed-out output
+    core.setOutput('timed-out', timedOut ? 'true' : 'false');
+
+    // Handle timeout case
+    if (timedOut) {
+      core.warning(`⚠️ Test timed out after ${elapsed}s`);
+
+      // Set outputs even for timeout (partial data may be available)
+      formatOutputs(response);
+      await formatSummary(response, inputs.url);
+
+      if (inputs.failOnTimeout) {
+        core.setFailed(`Test timed out after ${Math.round(elapsed / 60)} minutes`);
+      } else {
+        core.warning('Test timed out, but fail-on-timeout is false - workflow will continue');
+      }
+      return;
+    }
+
     core.info(`✅ Test completed in ${elapsed}s`);
 
     // Set outputs

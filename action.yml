@@ -49,6 +49,10 @@ inputs:
     description: 'Fail workflow if test fails (default: true)'
     required: false
     default: 'true'
+  fail-on-timeout:
+    description: 'Fail workflow if test times out before completion (default: false)'
+    required: false
+    default: 'false'
 
 outputs:
   status:
@@ -77,6 +81,8 @@ outputs:
     description: 'Playwright session data as JSON (screenshots, video, console logs, network requests)'
   tester-response:
     description: 'Raw tester response text'
+  timed-out:
+    description: 'Boolean - true if the test timed out before completion'
 
 runs:
   using: 'node20'

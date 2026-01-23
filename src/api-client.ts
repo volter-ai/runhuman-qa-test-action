@@ -26,7 +26,35 @@ const TERMINAL_STATES: JobStatus[] = ['completed', 'error', 'abandoned', 'incomp
 
 // Polling configuration
 const POLL_INTERVAL_MS = 5000; // 5 seconds between polls (matches MCP server)
-const MAX_WAIT_MS = 600000; // 10 minutes maximum wait time
+const DEFAULT_MAX_WAIT_MS = 600000; // 10 minutes default (fallback when no job data available)
+const BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer for claiming + API latency
+
+/**
+ * Calculate maximum wait time based on job data (accounts for time extensions)
+ */
+function calculateMaxWaitMs(
+  targetDurationMinutes: number | undefined,
+  totalExtensionMinutes: number | undefined,
+  responseDeadline: string | undefined
+): number {
+  // If we have a deadline, use it + buffer
+  if (responseDeadline) {
+    const deadlineMs = new Date(responseDeadline).getTime();
+    const nowMs = Date.now();
+    const remainingMs = deadlineMs - nowMs;
+    // Use at least DEFAULT_MAX_WAIT_MS even if deadline is past
+    return Math.max(remainingMs + BUFFER_MS, DEFAULT_MAX_WAIT_MS);
+  }
+
+  // Calculate based on target + extensions + buffer
+  if (targetDurationMinutes !== undefined) {
+    const totalMinutes = targetDurationMinutes + (totalExtensionMinutes || 0);
+    const totalMs = totalMinutes * 60 * 1000;
+    return totalMs + BUFFER_MS;
+  }
+
+  return DEFAULT_MAX_WAIT_MS;
+}
 
 /**
  * Sleep for a given duration
@@ -184,20 +212,43 @@ async function getJobStatus(apiUrl: string, apiKey: string, jobId: string): Prom
 }
 
 /**
- * Poll for job completion
+ * Result from waitForCompletion including timeout status
+ */
+interface WaitResult {
+  job: JobStatusResponse;
+  timedOut: boolean;
+}
+
+/**
+ * Poll for job completion with dynamic timeout that accounts for time extensions
  */
 async function waitForCompletion(
   apiUrl: string,
   apiKey: string,
   jobId: string,
-  maxWaitMs: number = MAX_WAIT_MS
-): Promise<JobStatusResponse> {
+  initialTargetMinutes?: number
+): Promise<WaitResult> {
   const startTime = Date.now();
   let lastStatus: JobStatus | null = null;
+  // Initial max wait: use target duration + buffer, or default
+  let maxWaitMs = initialTargetMinutes
+    ? initialTargetMinutes * 60 * 1000 + BUFFER_MS
+    : DEFAULT_MAX_WAIT_MS;
 
   while (true) {
     const elapsed = Date.now() - startTime;
     const status = await withRetry(() => getJobStatus(apiUrl, apiKey, jobId));
+
+    // Dynamically update maxWaitMs based on job data (handles extensions)
+    const newMaxWaitMs = calculateMaxWaitMs(
+      status.targetDurationMinutes,
+      status.totalExtensionMinutes,
+      status.responseDeadline
+    );
+    if (newMaxWaitMs > maxWaitMs) {
+      core.info(`⏱️ Time extension detected, extending timeout to ${Math.round(newMaxWaitMs / 60000)} minutes`);
+      maxWaitMs = newMaxWaitMs;
+    }
 
     // Log status changes
     if (status.status !== lastStatus) {
@@ -206,12 +257,13 @@ async function waitForCompletion(
     }
 
     if (TERMINAL_STATES.includes(status.status)) {
-      return status;
+      return { job: status, timedOut: false };
     }
 
-    // Check timeout
+    // Check timeout - return instead of throwing
     if (elapsed > maxWaitMs) {
-      throw new Error(`Job did not complete within ${Math.round(maxWaitMs / 60000)} minutes`);
+      core.warning(`Job did not complete within ${Math.round(maxWaitMs / 60000)} minutes`);
+      return { job: status, timedOut: true };
     }
 
     // Wait before next poll
@@ -220,19 +272,34 @@ async function waitForCompletion(
 }
 
 /**
+ * Result from runQATest including timeout status
+ */
+export interface QATestResult {
+  response: QATestResponse;
+  timedOut: boolean;
+}
+
+/**
  * Run a QA test - creates job and polls for completion
  */
-export async function runQATest(request: QATestRequest): Promise<QATestResponse> {
+export async function runQATest(request: QATestRequest): Promise<QATestResult> {
   // Step 1: Create the job (with retry for network errors)
   const jobId = await withRetry(() => createJob(request));
   core.info(`✅ Job created: ${jobId}`);
 
-  // Step 2: Poll for completion
+  // Step 2: Poll for completion (pass target duration for initial timeout calculation)
   core.info('⏳ Waiting for human tester...');
-  const finalStatus = await waitForCompletion(request.apiUrl, request.apiKey, jobId);
+  const { job: finalStatus, timedOut } = await waitForCompletion(
+    request.apiUrl,
+    request.apiKey,
+    jobId,
+    request.targetDurationMinutes
+  );
 
   // Step 3: Log completion status
-  if (finalStatus.status === 'completed') {
+  if (timedOut) {
+    core.warning(`⚠️ Job ${jobId} timed out (status: ${finalStatus.status})`);
+  } else if (finalStatus.status === 'completed') {
     core.info(`✅ Job ${jobId} completed successfully`);
   } else {
     core.warning(`⚠️ Job ${jobId} ended with status: ${finalStatus.status}`);
@@ -246,16 +313,19 @@ export async function runQATest(request: QATestRequest): Promise<QATestResponse>
 
   // Step 4: Convert to QATestResponse format
   return {
-    status: finalStatus.status,
-    result: finalStatus.result,
-    error: finalStatus.error || finalStatus.reason,
-    costUsd: finalStatus.costUsd,
-    testDurationSeconds: finalStatus.testDurationSeconds,
-    testerData: finalStatus.testerData,
-    testerResponse: finalStatus.testerResponse,
-    testerAlias: finalStatus.testerAlias,
-    testerAvatarUrl: finalStatus.testerAvatarUrl,
-    testerColor: finalStatus.testerColor,
-    jobId: finalStatus.id,
+    response: {
+      status: finalStatus.status,
+      result: finalStatus.result,
+      error: finalStatus.error || finalStatus.reason,
+      costUsd: finalStatus.costUsd,
+      testDurationSeconds: finalStatus.testDurationSeconds,
+      testerData: finalStatus.testerData,
+      testerResponse: finalStatus.testerResponse,
+      testerAlias: finalStatus.testerAlias,
+      testerAvatarUrl: finalStatus.testerAvatarUrl,
+      testerColor: finalStatus.testerColor,
+      jobId: finalStatus.id,
+    },
+    timedOut,
   };
 }

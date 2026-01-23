@@ -29985,7 +29985,28 @@ function buildMetadata() {
 const TERMINAL_STATES = ['completed', 'error', 'abandoned', 'incomplete', 'rejected'];
 // Polling configuration
 const POLL_INTERVAL_MS = 5000; // 5 seconds between polls (matches MCP server)
-const MAX_WAIT_MS = 600000; // 10 minutes maximum wait time
+const DEFAULT_MAX_WAIT_MS = 600000; // 10 minutes default (fallback when no job data available)
+const BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer for claiming + API latency
+/**
+ * Calculate maximum wait time based on job data (accounts for time extensions)
+ */
+function calculateMaxWaitMs(targetDurationMinutes, totalExtensionMinutes, responseDeadline) {
+    // If we have a deadline, use it + buffer
+    if (responseDeadline) {
+        const deadlineMs = new Date(responseDeadline).getTime();
+        const nowMs = Date.now();
+        const remainingMs = deadlineMs - nowMs;
+        // Use at least DEFAULT_MAX_WAIT_MS even if deadline is past
+        return Math.max(remainingMs + BUFFER_MS, DEFAULT_MAX_WAIT_MS);
+    }
+    // Calculate based on target + extensions + buffer
+    if (targetDurationMinutes !== undefined) {
+        const totalMinutes = targetDurationMinutes + (totalExtensionMinutes || 0);
+        const totalMs = totalMinutes * 60 * 1000;
+        return totalMs + BUFFER_MS;
+    }
+    return DEFAULT_MAX_WAIT_MS;
+}
 /**
  * Sleep for a given duration
  */
@@ -30111,25 +30132,36 @@ async function getJobStatus(apiUrl, apiKey, jobId) {
     return (await response.json());
 }
 /**
- * Poll for job completion
+ * Poll for job completion with dynamic timeout that accounts for time extensions
  */
-async function waitForCompletion(apiUrl, apiKey, jobId, maxWaitMs = MAX_WAIT_MS) {
+async function waitForCompletion(apiUrl, apiKey, jobId, initialTargetMinutes) {
     const startTime = Date.now();
     let lastStatus = null;
+    // Initial max wait: use target duration + buffer, or default
+    let maxWaitMs = initialTargetMinutes
+        ? initialTargetMinutes * 60 * 1000 + BUFFER_MS
+        : DEFAULT_MAX_WAIT_MS;
     while (true) {
         const elapsed = Date.now() - startTime;
         const status = await withRetry(() => getJobStatus(apiUrl, apiKey, jobId));
+        // Dynamically update maxWaitMs based on job data (handles extensions)
+        const newMaxWaitMs = calculateMaxWaitMs(status.targetDurationMinutes, status.totalExtensionMinutes, status.responseDeadline);
+        if (newMaxWaitMs > maxWaitMs) {
+            core.info(`⏱️ Time extension detected, extending timeout to ${Math.round(newMaxWaitMs / 60000)} minutes`);
+            maxWaitMs = newMaxWaitMs;
+        }
         // Log status changes
         if (status.status !== lastStatus) {
             core.info(`Job ${jobId} status: ${status.status} (${Math.round(elapsed / 1000)}s elapsed)`);
             lastStatus = status.status;
         }
         if (TERMINAL_STATES.includes(status.status)) {
-            return status;
+            return { job: status, timedOut: false };
         }
-        // Check timeout
+        // Check timeout - return instead of throwing
         if (elapsed > maxWaitMs) {
-            throw new Error(`Job did not complete within ${Math.round(maxWaitMs / 60000)} minutes`);
+            core.warning(`Job did not complete within ${Math.round(maxWaitMs / 60000)} minutes`);
+            return { job: status, timedOut: true };
         }
         // Wait before next poll
         await sleep(POLL_INTERVAL_MS);
@@ -30142,11 +30174,14 @@ async function runQATest(request) {
     // Step 1: Create the job (with retry for network errors)
     const jobId = await withRetry(() => createJob(request));
     core.info(`✅ Job created: ${jobId}`);
-    // Step 2: Poll for completion
+    // Step 2: Poll for completion (pass target duration for initial timeout calculation)
     core.info('⏳ Waiting for human tester...');
-    const finalStatus = await waitForCompletion(request.apiUrl, request.apiKey, jobId);
+    const { job: finalStatus, timedOut } = await waitForCompletion(request.apiUrl, request.apiKey, jobId, request.targetDurationMinutes);
     // Step 3: Log completion status
-    if (finalStatus.status === 'completed') {
+    if (timedOut) {
+        core.warning(`⚠️ Job ${jobId} timed out (status: ${finalStatus.status})`);
+    }
+    else if (finalStatus.status === 'completed') {
         core.info(`✅ Job ${jobId} completed successfully`);
     }
     else {
@@ -30160,17 +30195,20 @@ async function runQATest(request) {
     }
     // Step 4: Convert to QATestResponse format
     return {
-        status: finalStatus.status,
-        result: finalStatus.result,
-        error: finalStatus.error || finalStatus.reason,
-        costUsd: finalStatus.costUsd,
-        testDurationSeconds: finalStatus.testDurationSeconds,
-        testerData: finalStatus.testerData,
-        testerResponse: finalStatus.testerResponse,
-        testerAlias: finalStatus.testerAlias,
-        testerAvatarUrl: finalStatus.testerAvatarUrl,
-        testerColor: finalStatus.testerColor,
-        jobId: finalStatus.id,
+        response: {
+            status: finalStatus.status,
+            result: finalStatus.result,
+            error: finalStatus.error || finalStatus.reason,
+            costUsd: finalStatus.costUsd,
+            testDurationSeconds: finalStatus.testDurationSeconds,
+            testerData: finalStatus.testerData,
+            testerResponse: finalStatus.testerResponse,
+            testerAlias: finalStatus.testerAlias,
+            testerAvatarUrl: finalStatus.testerAvatarUrl,
+            testerColor: finalStatus.testerColor,
+            jobId: finalStatus.id,
+        },
+        timedOut,
     };
 }
 //# sourceMappingURL=api-client.js.map
@@ -30371,6 +30409,8 @@ function parseInputs() {
         }
     }
     const failOnError = failOnErrorStr !== 'false';
+    const failOnTimeoutStr = core.getInput('fail-on-timeout');
+    const failOnTimeout = failOnTimeoutStr === 'true';
     const canCreateGithubIssues = canCreateGithubIssuesStr === 'true';
     // Parse screen size input
     const screenSizeStr = core.getInput('screen-size') || 'desktop';
@@ -30419,6 +30459,7 @@ function parseInputs() {
         additionalValidationInstructions,
         canCreateGithubIssues,
         failOnError,
+        failOnTimeout,
         githubRepo,
         screenSize,
     };
@@ -30483,7 +30524,7 @@ async function run() {
         core.info(`🔗 API endpoint: ${inputs.apiUrl}`);
         // Call Runhuman API (creates job and polls for completion)
         const startTime = Date.now();
-        const response = await (0, api_client_1.runQATest)({
+        const { response, timedOut } = await (0, api_client_1.runQATest)({
             apiKey: inputs.apiKey,
             apiUrl: inputs.apiUrl,
             url: inputs.url,
@@ -30498,6 +30539,22 @@ async function run() {
             screenSize: inputs.screenSize,
         });
         const elapsed = Math.round((Date.now() - startTime) / 1000);
+        // Set timed-out output
+        core.setOutput('timed-out', timedOut ? 'true' : 'false');
+        // Handle timeout case
+        if (timedOut) {
+            core.warning(`⚠️ Test timed out after ${elapsed}s`);
+            // Set outputs even for timeout (partial data may be available)
+            (0, output_formatter_1.formatOutputs)(response);
+            await (0, output_formatter_1.formatSummary)(response, inputs.url);
+            if (inputs.failOnTimeout) {
+                core.setFailed(`Test timed out after ${Math.round(elapsed / 60)} minutes`);
+            }
+            else {
+                core.warning('Test timed out, but fail-on-timeout is false - workflow will continue');
+            }
+            return;
+        }
         core.info(`✅ Test completed in ${elapsed}s`);
         // Set outputs
         (0, output_formatter_1.formatOutputs)(response);
