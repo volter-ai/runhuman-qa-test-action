@@ -30630,10 +30630,10 @@ function formatOutputs(response) {
         core.setOutput('explanation', response.result.explanation);
         core.setOutput('data', JSON.stringify(response.result.data));
     }
-    if (response.costUsd !== undefined) {
+    if (response.costUsd != null) {
         core.setOutput('cost-usd', response.costUsd.toString());
     }
-    if (response.testDurationSeconds !== undefined) {
+    if (response.testDurationSeconds != null) {
         core.setOutput('duration-seconds', response.testDurationSeconds.toString());
     }
     if (response.jobId) {

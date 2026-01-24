@@ -42,8 +42,8 @@ export interface QATestResponse {
   status: string;
   result?: ExtractedResult;
   error?: string;
-  costUsd?: number;
-  testDurationSeconds?: number;
+  costUsd?: number | null;
+  testDurationSeconds?: number | null;
   testerData?: PlaywrightData;
   testerResponse?: string;
   testerAlias?: string;
@@ -85,8 +85,8 @@ export interface JobStatusResponse {
   result?: ExtractedResult;
   error?: string;
   reason?: string;
-  costUsd?: number;
-  testDurationSeconds?: number;
+  costUsd?: number | null;
+  testDurationSeconds?: number | null;
   testerData?: PlaywrightData;
   testerResponse?: string;
   testerAlias?: string;
