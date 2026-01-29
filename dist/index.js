@@ -30098,7 +30098,7 @@ async function createJob(request) {
  * Get the status of a job
  */
 async function getJobStatus(apiUrl, apiKey, jobId) {
-    const endpoint = `${apiUrl}/api/jobs/${jobId}`;
+    const endpoint = `${apiUrl}/api/job/${jobId}`;
     let response;
     try {
         response = await fetch(endpoint, {

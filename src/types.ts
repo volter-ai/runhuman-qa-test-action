@@ -78,7 +78,7 @@ export interface CreateJobResponse {
 // Job status values
 export type JobStatus = 'pending' | 'waiting' | 'working' | 'completed' | 'incomplete' | 'abandoned' | 'rejected' | 'error';
 
-// Response from GET /api/jobs/{jobId} (poll status)
+// Response from GET /api/job/{jobId} (poll status)
 export interface JobStatusResponse {
   id: string;
   status: JobStatus;

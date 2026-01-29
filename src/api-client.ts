@@ -172,7 +172,7 @@ async function createJob(request: QATestRequest): Promise<string> {
  * Get the status of a job
  */
 async function getJobStatus(apiUrl: string, apiKey: string, jobId: string): Promise<JobStatusResponse> {
-  const endpoint = `${apiUrl}/api/jobs/${jobId}`;
+  const endpoint = `${apiUrl}/api/job/${jobId}`;
 
   let response: Response;
   try {
